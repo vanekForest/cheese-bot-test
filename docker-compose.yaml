@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:14.5
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /data/postgres
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - cheese_bot
+    volumes:
+      - ./data:/data/postgres
+
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - cheese_bot
+
+
+  bot:
+    restart: on-failure
+    networks:
+      - cheese_bot
+    depends_on:
+      - db
+    build:
+      context: bot/
+      dockerfile: ../Dockerfile
+    env_file:
+      - bot/.env
+    volumes:
+      - ./bot/data:/data
+
+networks:
+  cheese_bot:

@@ -1,0 +1,17 @@
+{
+  "start_image": {
+    "path": "/data/photos/start-photo.jpg"
+  },
+  "further_examples": {
+    "path": "/data/photos/further-examples.jpg"
+  },
+  "description_product": {
+    "path": "/data/photos/description-product.jpg"
+  },
+  "price": {
+    "path": "/data/photos/price.jpg"
+  },
+  "best_post": {
+    "path": "/data/photos/best-post.jpg"
+  }
+}

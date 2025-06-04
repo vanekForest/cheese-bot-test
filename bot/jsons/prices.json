@@ -1,0 +1,24 @@
+{
+  "regular_offer": {
+    "rf_card": {
+      "price": 1390
+    },
+    "stripe": {
+      "price": 17.5
+    },
+    "lava": {
+      "price": 17.5
+    }
+  },
+  "sale_offer": {
+    "rf_card": {
+      "price": 329
+    },
+    "stripe": {
+      "price": 4.2
+    },
+    "lava": {
+      "price": 4.2
+    }
+  }
+}
