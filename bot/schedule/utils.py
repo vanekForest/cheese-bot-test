@@ -27,7 +27,6 @@ async def mail_to_users(
     """
 
     for user_id in user_ids:
-        user = await User.get_user_by_telegram_id(telegram_id=user_id, session=session)
         try:
             await bot.send_message(chat_id=user_id, text=text)
         except TelegramRetryAfter as e:
@@ -37,7 +36,7 @@ async def mail_to_users(
             await User.update_user_activity(
                 telegram_id=user_id, is_active=False, session=session
             )
-        await MailMessage(user_id=user.id, mail_type=mail_type).save(session=session)
+        await MailMessage(user_id=user_id, mail_type=mail_type).save(session=session)
 
 
 async def get_unsubscribed_users(user_ids: list[int], channel_id: str) -> list[int]:
@@ -77,7 +76,6 @@ async def mail_to_users_with_photo(
     """
 
     for user_id in user_ids:
-        user = await User.get_user_by_telegram_id(telegram_id=user_id, session=session)
         try:
             await send_photo_by_user_id(
                 user_id=user_id,
@@ -97,4 +95,4 @@ async def mail_to_users_with_photo(
             await User.update_user_activity(
                 telegram_id=user_id, is_active=False, session=session
             )
-        await MailMessage(user_id=user.id, mail_type=mail_type).save(session=session)
+        await MailMessage(user_id=user_id, mail_type=mail_type).save(session=session)
