@@ -14,7 +14,9 @@ async def mailing_task_not_subscribe(session: AsyncSession):
     Отправляет текстовое сообщение пользователям, которые не подписаны на канал.
     :param session: Сессия базы данных.
     """
-    user_ids = await User.get_all_user_telegram_ids(session=session)
+    user_ids = await User.get_all_user_telegram_ids_by_mail_message_type(
+        mail_type=MailType.NOT_SUBSCRIBE, session=session
+    )
 
     await mail_to_users(
         user_ids=await get_unsubscribed_users(user_ids=user_ids, channel_id=CHANNEL_ID),

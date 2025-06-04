@@ -1,13 +1,23 @@
 import datetime
 from typing import Optional, Self, List
 
-from sqlalchemy import Integer, BigInteger, String, select, DateTime, func, Boolean
+from sqlalchemy import (
+    Integer,
+    BigInteger,
+    String,
+    select,
+    DateTime,
+    func,
+    Boolean,
+    update,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column, relationship, aliased
 
-from schemas.db_models import Payment
+from config import MAX_COUNT_MAIL_MESSAGES, __log__
+from schemas.db_models import Payment, MailMessage
 from schemas.db_models.db_session import Base
-from schemas.enum_models import PaymentStatus
+from schemas.enum_models import PaymentStatus, MailType
 
 
 class User(Base):
@@ -45,58 +55,79 @@ class User(Base):
         return result.scalar_one_or_none()
 
     @classmethod
-    async def get_all_user_telegram_ids(cls, session: AsyncSession) -> list[int]:
-        """
-        Получение всех telegram id пользователей
-        :param session: асинхронная сессия
-        :return: список всех пользователей
-        """
-        query = select(cls.telegram_id).where(cls.is_active.is_(True))
-        result = await session.execute(query)
-        return list(result.scalars().all())
-
-    @classmethod
     async def get_not_successful_or_no_payments_telegram_ids(
         cls, session: AsyncSession
     ) -> list[int]:
         """
         Получение уникальных telegram_id пользователей, у которых либо нет платежей,
-        либо есть платежи, но ни один из них не имеет статус SUCCESS.
-        :param session: асинхронная сессия
-        :return: список уникальных telegram_id
+        либо есть платежи, но ни один из них не имеет статус SUCCESS, и при этом
+        количество отправленных сообщений типа NOT_SUCCESS_PAYMENT < MAX_COUNT_MAIL_MESSAGES.
         """
         payment_alias = aliased(Payment)
+        mail_alias = aliased(MailMessage)
 
-        subquery = (
+        # Подзапрос: пользователи с успешными платежами
+        successful_payment_subq = (
             select(payment_alias.user_id)
             .where(payment_alias.status == PaymentStatus.SUCCESS)
             .subquery()
         )
 
+        # Основной запрос
         query = (
             select(cls.telegram_id)
-            .outerjoin(payment_alias, payment_alias.user_id == cls.id)
-            .where(~cls.id.in_(select(subquery.c.user_id)), cls.is_active.is_(True))
+            .outerjoin(
+                mail_alias,
+                (cls.id == mail_alias.user_id)
+                & (mail_alias.mail_type == MailType.NOT_SUCCESS_PAYMENT),
+            )
+            .where(
+                ~cls.id.in_(select(successful_payment_subq.c.user_id)),
+                cls.is_active.is_(True),
+            )
+            .group_by(cls.id)
+            .having(func.count(mail_alias.id) < MAX_COUNT_MAIL_MESSAGES)
         )
 
         result = await session.execute(query)
-        return list(set(result.scalars().all()))
+        return list(result.scalars().all())
 
     @classmethod
     async def update_user_activity(
         cls, telegram_id: int, is_active: bool, session: AsyncSession
     ) -> None:
         """
-        Обновление активности пользователя по его Telegram ID.
+        Обновление активности пользователя по Telegram ID с использованием update().
         :param telegram_id: Telegram ID пользователя.
         :param is_active: Флаг активности пользователя.
         :param session: Асинхронная сессия.
         """
-        query = select(cls).where(cls.telegram_id == telegram_id)
-        result = await session.execute(query)
-        user = result.scalar_one_or_none()
+        query = (
+            update(cls)
+            .where(cls.telegram_id == telegram_id)
+            .values(is_active=is_active)
+        )
+        await session.execute(query)
+        await session.commit()
 
-        if user:
-            user.is_active = is_active
-            session.add(user)
-            await session.commit()
+    @classmethod
+    async def get_all_user_telegram_ids_by_mail_message_type(
+        cls, mail_type: MailType, session: AsyncSession
+    ) -> list[int]:
+        """
+        Получение всех ID пользователей, которым нужно отправить сообщение определённого типа.
+        :param mail_type: тип рассылки
+        :return: список ID пользователей
+        """
+        query = (
+            select(User.telegram_id)
+            .outerjoin(
+                MailMessage,
+                (User.id == MailMessage.user_id) & (MailMessage.mail_type == mail_type),
+            )
+            .group_by(User.id)
+            .having(func.count(MailMessage.id) < MAX_COUNT_MAIL_MESSAGES)
+        )
+        __log__.info(query)
+        result = await session.execute(query)
+        return list(result.scalars().all())

@@ -28,13 +28,6 @@ async def mail_to_users(
 
     for user_id in user_ids:
         user = await User.get_user_by_telegram_id(telegram_id=user_id, session=session)
-        if (
-            await MailMessage.get_count_message_by_mail_type_and_user_id(
-                user_id=user.id, mail_type=mail_type, session=session
-            )
-            > 4
-        ):
-            continue
         try:
             await bot.send_message(chat_id=user_id, text=text)
         except TelegramRetryAfter as e:
@@ -85,13 +78,6 @@ async def mail_to_users_with_photo(
 
     for user_id in user_ids:
         user = await User.get_user_by_telegram_id(telegram_id=user_id, session=session)
-        if (
-            await MailMessage.get_count_message_by_mail_type_and_user_id(
-                user_id=user.id, mail_type=mail_type, session=session
-            )
-            > 4
-        ):
-            continue
         try:
             await send_photo_by_user_id(
                 user_id=user_id,
